@@ -32,9 +32,14 @@ var dive = function(dir, action) {
       console.log("SKIPPING FILE: Could not stat " + fullpath);
     }
     if(stat && stat.isDirectory()) {
-      dive(fullpath, action);
+      try {
+        dive(fullpath, action);
+      } catch (err) {}
+      }
     } else {
-      action(file, fullpath);
+      try {
+        action(file, fullpath);
+      } catch (err) {}
     }
   });
 };
@@ -69,8 +74,11 @@ if( typeof process != 'undefined' && process.argv[2]) {
         var content = fs.readFileSync(fullpath, 'utf8');
         //beautify source so result snippet is meaningful
         var content = beautify(content, { indent_size: 2 });
-
-        var ast = parser.parse(content, { locations: true });
+        try {
+          var ast = parser.parse(content, { locations: true });
+        } catch (err) {
+          console.log('Parser Error! Skipping file: ' + fullpath);
+        }
 
         var scanresult = ScanJS.scan(ast, fullpath);
         if (scanresult.type == 'error') {
