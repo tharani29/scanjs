@@ -13,7 +13,28 @@ var ScanJS = require(__dirname + '/common/scan');
 var signatures = JSON.parse(fs.readFileSync(__dirname + "/common/rules.json", "utf8"));
 ScanJS.loadRules(signatures);
 
-var argv = require('optimist').usage('Usage: $node scan.js -t [path/to/app] -o [resultFile.json]').demand(['t']).argv;
+var argv = require('optimist').usage('Usage: $node scan.js -t [path/to/app] -o [resultFile.json] --skipknown').demand(['t']).argv;
+
+var jslibs = [
+  /bootstrap/,
+  /jquery/,
+  /uglify/,
+  /knockout/,
+  /angular/,
+  /backbone/,
+  /ember/,
+  /yui/
+];
+
+function matchInArray(filename, jslibs) {
+  if(argv.skipknown) {
+    for (var i=0; i<jslibs.length;i++) {
+      if (filename.match(jslibs[i])) {
+        console.log("SKIPPING FILE: (whitelisted) " + filename);
+        return true;
+  }}}
+  return false;
+};
 
 var dive = function(dir, action) {
   if( typeof action !== 'function') {
@@ -30,9 +51,15 @@ var dive = function(dir, action) {
       console.log("SKIPPING FILE: Could not stat " + fullpath);
     }
     if(stat && stat.isDirectory()) {
-      dive(fullpath, action);
+      try {
+        dive(fullpath, action);
+      } catch (e) {
+          console.log("SKIPPING FILE: Couldn't parse " + fullpath);
+      }
     } else {
-      action(file, fullpath);
+      try {
+        action(file, fullpath);
+      } catch (e) {}
     }
   });
 };
@@ -63,7 +90,7 @@ if( typeof process != 'undefined' && process.argv[2]) {
     dive(argv.t, function(file, fullpath) {
       var ext = path.extname(file.toString());
 
-      if(ext == '.js') {
+      if(ext == '.js' && !matchInArray(file, jslibs)) {
         var content = fs.readFileSync(fullpath, 'utf8');
         //beautify source so result snippet is meaningful
         var content = beautify(content, { indent_size: 2 })
